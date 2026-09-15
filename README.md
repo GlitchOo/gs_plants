@@ -1,6 +1,7 @@
 # gs_plants
 
 ![example](https://static.glitchd.app/plants/gs_plants_sm.jpg)
+![example tint](https://i.gyazo.com/a87471118c3490cbc95cd0054d2342f8.png)
 
 Native herb composite plants for RedM. Stream world plants near the player, harvest with the game's pick / eat prompts, then grant inventory rewards or needs effects with a shared cooldown.
 
@@ -190,7 +191,7 @@ Agarita (night), Alaskan Ginseng, American Ginseng, Bay Bolete, Blackberry, Blac
 ## License / author
 
 **Author:** \_G\[S\]cripts  
-**Version:** 1.0.0  
+**Version:** 1.0.1  
 **License:** [PolyForm Noncommercial License 1.0.0](LICENSE)
 
 Noncommercial use only. See [LICENSE](LICENSE) for full terms.
