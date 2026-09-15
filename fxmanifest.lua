@@ -13,7 +13,6 @@ shared_scripts {
 }
 
 client_scripts {
-	'client/dataview.lua',
 	'client/composites.lua',
 }
 

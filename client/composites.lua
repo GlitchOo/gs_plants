@@ -42,14 +42,16 @@ local function GetCompositeEntities(compositeId)
 	end
 
 	local maxEntities = 8
-	local buffer = DataView.ArrayBuffer((maxEntities + 1) * 8)
-	local count = Citizen.InvokeNative(0x96C6ED22FB742C3E, compositeId, buffer:Buffer(), Citizen.ResultAsInteger())
+	local byteLength = (maxEntities + 1) * 8
+	local blob = (string.blob and string.blob(byteLength)) or string.rep('\0', math.max(41, byteLength))
+	-- _GET_HERB_COMPOSITE_NUM_ENTITIES
+	local count = Citizen.InvokeNative(0x96C6ED22FB742C3E, compositeId, blob, Citizen.ResultAsInteger())
 	if type(count) ~= 'number' or count < 1 then
 		return entities
 	end
 
 	for i = 0, math.min(count, maxEntities) - 1 do
-		local ent = buffer:GetInt32(i * 8)
+		local ent = string.unpack('<i4', blob, 1 + (i * 8))
 		if ent and ent ~= 0 and DoesEntityExist(ent) then
 			entities[#entities + 1] = ent
 		end
