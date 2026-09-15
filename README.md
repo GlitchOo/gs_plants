@@ -1,6 +1,6 @@
 # gs_plants
 
-![gs_plants](https://static.glitchd.app/plants/gs_plants.png)
+![example](https://static.glitchd.app/plants/gs_plants.png)
 
 Native herb composite plants for RedM. Stream world plants near the player, harvest with the game's pick / eat prompts, then grant inventory rewards or needs effects with a shared cooldown.
 
@@ -31,8 +31,7 @@ Native herb composite plants for RedM. Stream world plants near the player, harv
 
 Optional (eat effects):
 
-- outsider_needs, **or**
-- [vorp_metabolism](https://github.com/VORPCORE/vorp_metabolism-lua) (stock VORP events)
+- outsider_needs **or** [vorp_metabolism](https://github.com/VORPCORE/vorp_metabolism-lua)
 
 Ensure the needs resource starts **before** `gs_plants` if you want eat effects.
 
@@ -45,7 +44,7 @@ Ensure the needs resource starts **before** `gs_plants` if you want eat effects.
 3. Add to `server.cfg` (after Core, Inventory, and your event / needs resources):
 
 ```cfg
-ensure gs_events
+ensure gs_events **or** vorp_lib
 ensure gs_plants
 ```
 
