@@ -11,6 +11,37 @@ local EntityToIndex = {}
 ---@type table<number, { action: 'eat'|'pick', at: number }>
 local PendingLoot = {}
 
+local Framework = Config.Framework or 'vorp'
+
+---@return boolean
+local function IsPlayerReady()
+	if LocalPlayer.state.IsInSession then
+		return true
+	end
+	if Framework == 'rsg' and LocalPlayer.state.isLoggedIn then
+		return true
+	end
+	return false
+end
+
+---@return string
+local function ResolveNeeds()
+	local needs = Config.Needs or 'auto'
+	if needs ~= 'auto' then
+		return needs
+	end
+	if Framework == 'rsg' then
+		return 'rsg_hud'
+	end
+	if GetResourceState('outsider_needs') == 'started' then
+		return 'outsider_needs'
+	end
+	if GetResourceState('vorp_metabolism') == 'started' then
+		return 'vorp_metabolism'
+	end
+	return 'none'
+end
+
 local function EnsureCompositeAsset(hash)
 	if RequestedAssets[hash] then
 		return true
@@ -273,36 +304,74 @@ local function FindActiveForLoot(lootedEntity)
 	return bestIndex, bestEntry
 end
 
----Applies plant eat effects to outsider_needs (preferred) or stock vorp_metabolism.
+---Applies plant eat effects via Config.Needs (outsider_needs, vorp_metabolism, rsg_hud, none).
 ---Eat tables use outsider_needs keys (AddHunger, AddThirst, RemoveStress, ...).
 ---@param effects table
 local function ApplyNeedsEffects(effects)
-	if GetResourceState('outsider_needs') == 'started' then
+	local provider = ResolveNeeds()
+	if provider == 'none' then
+		return
+	end
+
+	if provider == 'outsider_needs' then
+		if GetResourceState('outsider_needs') ~= 'started' then
+			return
+		end
 		exports.outsider_needs:SetNeedsData(effects)
 		return
 	end
 
-	if GetResourceState('vorp_metabolism') ~= 'started' then
+	if provider == 'rsg_hud' then
+		if GetResourceState('rsg-hud') ~= 'started' then
+			return
+		end
+		local hunger = (tonumber(effects.AddHunger) or 0) - (tonumber(effects.RemoveHunger) or 0)
+			+ (tonumber(effects.Hunger) or 0)
+		local thirst = (tonumber(effects.AddThirst) or 0) - (tonumber(effects.RemoveThirst) or 0)
+			+ (tonumber(effects.Thirst) or 0)
+		local removeStress = tonumber(effects.RemoveStress) or 0
+		local addStress = tonumber(effects.AddStress) or 0
+
+		if hunger ~= 0 then
+			local current = tonumber(LocalPlayer.state.hunger) or 0
+			TriggerEvent('hud:client:UpdateHunger', math.max(0, math.min(100, current + hunger)))
+		end
+		if thirst ~= 0 then
+			local current = tonumber(LocalPlayer.state.thirst) or 0
+			TriggerEvent('hud:client:UpdateThirst', math.max(0, math.min(100, current + thirst)))
+		end
+		if removeStress > 0 then
+			TriggerEvent('hud:client:RelieveStress', removeStress)
+		end
+		if addStress > 0 then
+			TriggerEvent('hud:client:GainStress', addStress)
+		end
 		return
 	end
 
-	-- Stock vorp_metabolism: 0-1000 hunger/thirst. Outsider-style values are 0-100.
-	local scale = 10
-	local hunger = (tonumber(effects.AddHunger) or 0) - (tonumber(effects.RemoveHunger) or 0)
-	local thirst = (tonumber(effects.AddThirst) or 0) - (tonumber(effects.RemoveThirst) or 0)
-	local metabolism = (tonumber(effects.AddMetabolism) or 0) - (tonumber(effects.RemoveMetabolism) or 0)
-	hunger = hunger + (tonumber(effects.Hunger) or 0)
-	thirst = thirst + (tonumber(effects.Thirst) or 0)
-	metabolism = metabolism + (tonumber(effects.Metabolism) or 0)
+	if provider == 'vorp_metabolism' then
+		if GetResourceState('vorp_metabolism') ~= 'started' then
+			return
+		end
 
-	if hunger ~= 0 then
-		TriggerEvent('vorpmetabolism:changeValue', 'Hunger', math.floor(hunger * scale))
-	end
-	if thirst ~= 0 then
-		TriggerEvent('vorpmetabolism:changeValue', 'Thirst', math.floor(thirst * scale))
-	end
-	if metabolism ~= 0 then
-		TriggerEvent('vorpmetabolism:changeValue', 'Metabolism', math.floor(metabolism * scale))
+		-- Stock vorp_metabolism: 0-1000 hunger/thirst. Outsider-style values are 0-100.
+		local scale = 10
+		local hunger = (tonumber(effects.AddHunger) or 0) - (tonumber(effects.RemoveHunger) or 0)
+		local thirst = (tonumber(effects.AddThirst) or 0) - (tonumber(effects.RemoveThirst) or 0)
+		local metabolism = (tonumber(effects.AddMetabolism) or 0) - (tonumber(effects.RemoveMetabolism) or 0)
+		hunger = hunger + (tonumber(effects.Hunger) or 0)
+		thirst = thirst + (tonumber(effects.Thirst) or 0)
+		metabolism = metabolism + (tonumber(effects.Metabolism) or 0)
+
+		if hunger ~= 0 then
+			TriggerEvent('vorpmetabolism:changeValue', 'Hunger', math.floor(hunger * scale))
+		end
+		if thirst ~= 0 then
+			TriggerEvent('vorpmetabolism:changeValue', 'Thirst', math.floor(thirst * scale))
+		end
+		if metabolism ~= 0 then
+			TriggerEvent('vorpmetabolism:changeValue', 'Metabolism', math.floor(metabolism * scale))
+		end
 	end
 end
 
@@ -402,7 +471,7 @@ end
 
 local function StreamComposites()
 	local cfg = Config.Composites
-	if not LocalPlayer.state.IsInSession then return end
+	if not IsPlayerReady() then return end
 	if IsPedDeadOrDying(PlayerPedId()) then return end
 
 	local now = GlobalState.gs_plants_time
@@ -498,7 +567,7 @@ ListenToGameEvent('EVENT_LOOT_COMPLETE', function(data)
 		return
 	end
 
-	if not LocalPlayer.state.IsInSession or IsPedDeadOrDying(PlayerPedId()) then
+	if not IsPlayerReady() or IsPedDeadOrDying(PlayerPedId()) then
 		TriggerServerEvent('gs_plants:server:LootCancel')
 		return
 	end
@@ -553,8 +622,18 @@ RegisterNetEvent('gs_plants:client:ApplyEatEffects', function(plantKey)
 	ApplyNeedsEffects(effects)
 end)
 
-RegisterNetEvent('vorp:SelectedCharacter', function()
+local function RequestClaimed()
 	TriggerServerEvent('gs_plants:server:RequestClaimed')
+end
+
+RegisterNetEvent('vorp:SelectedCharacter', function()
+	if Framework ~= 'vorp' then return end
+	RequestClaimed()
+end)
+
+RegisterNetEvent('RSGCore:Client:OnPlayerLoaded', function()
+	if Framework ~= 'rsg' then return end
+	RequestClaimed()
 end)
 
 AddEventHandler('onResourceStop', function(resourceName)
@@ -592,7 +671,7 @@ CreateThread(function()
 	end
 	print(('^2[gs_plants]^7 loaded %s composite locations (%s plants)'):format(#Locations, plantCount))
 
-	TriggerServerEvent('gs_plants:server:RequestClaimed')
+	RequestClaimed()
 
 	-- Re-apply Eagle Eye tint/glow when Eagle Eye turns on
 	CreateThread(function()

@@ -4,6 +4,12 @@ Config.Locale = 'en' -- locales/<Locale>.json (falls back to en)
 
 Config.Timeout = 60 -- Composite cooldown after pick/eat (minutes)
 
+Config.Framework = 'vorp' -- 'vorp' | 'rsg'
+
+-- Eat effects provider. 'auto' picks from Framework + started resources.
+-- 'outsider_needs' | 'vorp_metabolism' | 'rsg_hud' | 'none'
+Config.Needs = 'auto'
+
 -- Game event listener: 'gs_events' or 'vorp_lib'
 -- vorp_lib also needs: shared_script '@vorp_lib/import.lua' in fxmanifest.lua
 Config.EventProvider = 'gs_events'
@@ -32,6 +38,7 @@ Config.LootBehaviors = {
 -- Fallback eat effects when a plant has no eat table.
 -- Keys match outsider_needs SetNeedsData (0-100 scale). Stock vorp_metabolism
 -- maps Add/Remove Hunger+Thirst via vorpmetabolism:changeValue (scaled *10 to 0-1000).
+-- rsg_hud maps hunger/thirst deltas onto LocalPlayer.state and stress via Relieve/GainStress.
 Config.DefaultEat = {
 	AddHunger = 5,
 	AddThirst = 2,
@@ -40,7 +47,7 @@ Config.DefaultEat = {
 
 -- Rewards / eat effects per plant key (keys match data/composites.lua rewards).
 -- rewards: each item rolled independently (chance 1.0 = always).
--- eat: outsider_needs SetNeedsData fields, or mapped to stock vorp_metabolism events.
+-- eat: outsider_needs SetNeedsData fields, or mapped to vorp_metabolism / rsg_hud.
 -- nightOnly: only spawn during Config.NightHours.
 -- eagleEyeTint: RGB tint while Eagle Eye is active (false to skip; omit uses DefaultEagleEyeTint).
 Config.Plants = {

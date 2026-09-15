@@ -1,4 +1,7 @@
-local Core = exports.vorp_core:GetCore()
+local Framework = Config.Framework or 'vorp'
+local Core = Framework == 'rsg'
+	and exports['rsg-core']:GetCoreObject()
+	or exports.vorp_core:GetCore()
 
 ---Claimed composite indexes until timeout (shared harvest lock).
 ---@type table<number, number>
@@ -10,6 +13,51 @@ local Sessions = {}
 
 local SESSION_TTL = 20
 local MAX_DIST = 3.0
+
+---@param src number
+---@param msg string
+local function Notify(src, msg)
+	if Framework == 'rsg' then
+		TriggerClientEvent('ox_lib:notify', src, { description = msg, type = 'inform', duration = 4000 })
+	elseif Framework == 'vorp' then
+		Core.NotifyRightTip(src, msg, 4000)
+	end
+end
+
+---@param src number
+---@param item string
+---@param amount number
+---@return boolean
+local function CanCarry(src, item, amount)
+	if Framework == 'rsg' then
+		return exports['rsg-inventory']:CanAddItem(src, item, amount)
+	elseif Framework == 'vorp' then
+		return exports.vorp_inventory:canCarryItems(src, amount)
+			and exports.vorp_inventory:canCarryItem(src, item, amount)
+	end
+	return false
+end
+
+---@param src number
+---@param item string
+---@param amount number
+---@return boolean
+local function AddItem(src, item, amount)
+	if Framework == 'rsg' then
+		local player = Core.Functions.GetPlayer(src)
+		if not player then return false end
+		return player.Functions.AddItem(item, amount)
+	elseif Framework == 'vorp' then
+		exports.vorp_inventory:addItem(src, item, amount)
+		return true
+	end
+	return false
+end
+
+---@param src number
+local function SyncClaimed(src)
+	TriggerClientEvent('gs_plants:client:SyncClaimed', src, ClaimedUntil)
+end
 
 local function ClearExpired()
 	local now = GlobalState.gs_plants_time
@@ -46,13 +94,19 @@ local function GetLocation(index)
 end
 
 RegisterNetEvent('gs_plants:server:RequestClaimed', function()
-	TriggerClientEvent('gs_plants:client:SyncClaimed', source, ClaimedUntil)
+	SyncClaimed(source)
 end)
 
 AddEventHandler('vorp:SelectedCharacter', function(src)
+	if Framework ~= 'vorp' then return end
 	if type(src) == 'number' then
-		TriggerClientEvent('gs_plants:client:SyncClaimed', src, ClaimedUntil)
+		SyncClaimed(src)
 	end
+end)
+
+RegisterNetEvent('RSGCore:Server:OnPlayerLoaded', function()
+	if Framework ~= 'rsg' then return end
+	SyncClaimed(source)
 end)
 
 RegisterNetEvent('gs_plants:server:LootStart', function(index, action)
@@ -73,7 +127,7 @@ RegisterNetEvent('gs_plants:server:LootStart', function(index, action)
 
 	local untilTs = ClaimedUntil[index]
 	if untilTs and GlobalState.gs_plants_time < untilTs then
-		Core.NotifyRightTip(_source, _('harvested_recently'), 4000)
+		Notify(_source, _('harvested_recently'))
 		return
 	end
 
@@ -123,7 +177,7 @@ RegisterNetEvent('gs_plants:server:CompleteLoot', function(index)
 
 	local claimedUntil = ClaimedUntil[index]
 	if claimedUntil and now < claimedUntil then
-		Core.NotifyRightTip(_source, _('harvested_recently'), 4000)
+		Notify(_source, _('harvested_recently'))
 		return
 	end
 
@@ -134,7 +188,7 @@ RegisterNetEvent('gs_plants:server:CompleteLoot', function(index)
 	local label = plant.name or location.rewards
 
 	if action == 'eat' then
-		Core.NotifyRightTip(_source, _('ate_plant', label), 4000)
+		Notify(_source, _('ate_plant', label))
 		TriggerClientEvent('gs_plants:client:ApplyEatEffects', _source, location.rewards)
 		return
 	end
@@ -159,7 +213,7 @@ RegisterNetEvent('gs_plants:server:CompleteLoot', function(index)
 	end
 
 	if #rolled < 1 then
-		Core.NotifyRightTip(_source, _('found_nothing'), 4000)
+		Notify(_source, _('found_nothing'))
 		return
 	end
 
@@ -167,18 +221,18 @@ RegisterNetEvent('gs_plants:server:CompleteLoot', function(index)
 
 	for i = 1, #rolled do
 		local entry = rolled[i]
-		if not exports.vorp_inventory:canCarryItems(_source, entry.amount)
-			or not exports.vorp_inventory:canCarryItem(_source, entry.item, entry.amount) then
-			Core.NotifyRightTip(_source, _('cant_carry', label), 4000)
+		if not CanCarry(_source, entry.item, entry.amount) then
+			Notify(_source, _('cant_carry', label))
 			break
 		end
 
-		exports.vorp_inventory:addItem(_source, entry.item, entry.amount)
-		granted[#granted + 1] = entry.amount..'x '..entry.item
+		if AddItem(_source, entry.item, entry.amount) then
+			granted[#granted + 1] = entry.amount..'x '..entry.item
+		end
 	end
 
 	if #granted > 0 then
-		Core.NotifyRightTip(_source, _('got_items', table.concat(granted, ', ')), 4000)
+		Notify(_source, _('got_items', table.concat(granted, ', ')))
 	end
 end)
 

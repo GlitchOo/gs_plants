@@ -17,7 +17,8 @@ Native herb composite plants for RedM. Stream world plants near the player, harv
 - **Night herbs** - Agarita and Blood Flower only spawn during configurable night hours
 - **Eagle Eye tints** - per-plant RGB glow while Eagle Eye is active
 - **Configurable plants** - rewards, chances, amounts, and eat effects per plant key in `config.lua`
-- **Soft needs support** - works with outsider_needs or stock VORP `vorp_metabolism` when started (not a hard dependency)
+- **Soft needs support** - outsider_needs, stock VORP `vorp_metabolism`, or RSG `rsg-hud` when started (not a hard dependency)
+- **Framework support** - VORP or RSG via `Config.Framework` (inventory, notify, player load)
 - **Event providers** - listen via `gs_events` (default) or `vorp_lib`
 - **Locales** - player-facing notifies via `locales/<lang>.json`
 - **Pre Configured** - Over 5700 unique plant locations are pre configured.
@@ -26,14 +27,32 @@ Native herb composite plants for RedM. Stream world plants near the player, harv
 
 ## Requirements
 
+Pick one framework via `Config.Framework`:
+
+### VORP (`Config.Framework = 'vorp'`)
+
 - RedM
 - [VORP Core](https://github.com/VORPCORE/vorp_core-lua)
 - [VORP Inventory](https://github.com/VORPCORE/vorp_inventory-lua)
 - [gs_events](https://github.com/GlitchOo/gs_events) (default) **or** [vorp_lib](https://github.com/VORPCORE/vorp_lib) when `Config.EventProvider = 'vorp_lib'`
 
-Optional (eat effects):
+Optional eat effects (`Config.Needs = 'auto'` or pinned):
 
 - outsider_needs **or** [vorp_metabolism](https://github.com/VORPCORE/vorp_metabolism-lua)
+
+### RSG (`Config.Framework = 'rsg'`)
+
+- RedM
+- [rsg-core](https://github.com/Rexshack-RedM/rsg-core)
+- [rsg-inventory](https://github.com/Rexshack-RedM/rsg-inventory)
+- [ox_lib](https://github.com/overextended/ox_lib) (notifies)
+- [gs_events](https://github.com/GlitchOo/gs_events) (default) **or** vorp_lib when configured
+
+Optional eat effects:
+
+- [rsg-hud](https://github.com/Rexshack-RedM/rsg-hud) (`Config.Needs = 'rsg_hud'` or `'auto'`)
+
+On RSG servers set `Config.Framework = 'rsg'` and preferably `Config.Needs = 'rsg_hud'` (defaults ship as VORP).
 
 Ensure the needs resource starts **before** `gs_plants` if you want eat effects.
 
@@ -42,8 +61,9 @@ Ensure the needs resource starts **before** `gs_plants` if you want eat effects.
 ## Installation
 
 1. Place `gs_plants` in your resources folder.
-2. Add inventory items that match your plant `rewards` item names.
-3. Add to `server.cfg` (after Core, Inventory, and your event / needs resources):
+2. Set `Config.Framework` to `'vorp'` or `'rsg'`.
+3. Add inventory items that match your plant `rewards` item names.
+4. Add to `server.cfg` (after Core, Inventory, and your event / needs resources):
 
 ```cfg
 ensure gs_events **or** vorp_lib
@@ -75,6 +95,8 @@ Edit `config.lua`:
 |-----|---------|-------|
 | `Locale` | `'en'` | Loads `locales/<Locale>.json` (falls back to `en`) |
 | `Timeout` | `60` | Shared cooldown after pick / eat (minutes) |
+| `Framework` | `'vorp'` | `'vorp'` or `'rsg'` (inventory, notify, character load) |
+| `Needs` | `'auto'` | `'auto'`, `'outsider_needs'`, `'vorp_metabolism'`, `'rsg_hud'`, or `'none'` |
 | `EventProvider` | `'gs_events'` | `'gs_events'` or `'vorp_lib'` |
 | `Composites.spawnDistance` | `20.0` | Spawn when player is within this range |
 | `Composites.despawnDistance` | `40.0` | Despawn beyond this range |
@@ -84,6 +106,17 @@ Edit `config.lua`:
 | `LootBehaviors.pick` / `.eat` | `0` / `1` | Native looting behavior types |
 | `DefaultEat` | table | Fallback eat effects when a plant has no `eat` table |
 | `Plants` | table | Per-plant name, rewards, eat, nightOnly, eagleEyeTint |
+
+### Needs (`Config.Needs`)
+
+`'auto'` resolution:
+
+1. `Framework == 'rsg'` -> `rsg_hud`
+2. else if `outsider_needs` is started -> `outsider_needs`
+3. else if `vorp_metabolism` is started -> stock `vorp_metabolism` (`vorpmetabolism:changeValue`)
+4. else -> `none` (no eat effects)
+
+Pin a provider explicitly when you do not want detection. Eat values stay on a 0–100 scale; `vorp_metabolism` multiplies hunger/thirst by 10; `rsg_hud` applies deltas to `LocalPlayer.state.hunger` / `.thirst` and uses `RelieveStress` / `GainStress`.
 
 ### Locales
 
