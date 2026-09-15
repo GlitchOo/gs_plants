@@ -1,6 +1,6 @@
 # gs_plants
 
-![example](https://static.glitchd.app/plants/gs_plants.png)
+![example](https://static.glitchd.app/plants/gs_plants_sm.jpg)
 
 Native herb composite plants for RedM. Stream world plants near the player, harvest with the game's pick / eat prompts, then grant inventory rewards or needs effects with a shared cooldown.
 
