@@ -32,36 +32,164 @@ local function EnsureCompositeAsset(hash)
 	return false
 end
 
----Plant entities attached to a herb composite.
----@param compositeId number
+---Known world/inventory plant models used when composite entity lookup returns nothing.
+local PlantModels = {
+	agarita = { joaat('mp005_s_inv_agarita_01x'), joaat('mp005_s_inv_agarita_01bx') },
+	alaskan_ginseng = { joaat('alaskanginseng_p'), joaat('s_inv_alaskanginseng01x'), joaat('s_inv_alaskanginseng01bx') },
+	american_ginseng = { joaat('ginseng_p'), joaat('s_ginseng01x') },
+	bay_bolete = { joaat('s_inv_baybolete'), joaat('s_inv_baybolete01bx') },
+	black_berry = { joaat('s_inv_blackberry01x'), joaat('s_inv_blackberry01bx') },
+	black_currant = { joaat('blackcurrant_p'), joaat('s_inv_blackcurrant01x'), joaat('s_inv_blackcurrant01bx') },
+	blood_flower = { joaat('mp005_bloodflower_p'), joaat('s_inv_bloodflower01x'), joaat('mp005_s_inv_bloodflw01x') },
+	chanterelles = { joaat('s_inv_chanterelles'), joaat('s_inv_chanterelles01bx') },
+	common_bulrush = { joaat('bulrush_p'), joaat('s_inv_bulrush01x'), joaat('s_inv_bulrush01bx') },
+	creeping_thyme = { joaat('thyme_p'), joaat('s_inv_thyme01x'), joaat('s_inv_thyme01bx') },
+	desert_sage = { joaat('desertsage_p'), joaat('s_desertsage01x') },
+	english_mace = { joaat('engmace_p') },
+	evergreen_huckleberry = { joaat('s_inv_huckleberry01x'), joaat('s_inv_huckleberry01bx') },
+	golden_currant = { joaat('goldencurrant_p'), joaat('s_goldencurrant01x') },
+	hummingbird_sage = { joaat('humbirdsage_p'), joaat('s_hummingbirdsage01x') },
+	indian_tobacco = { joaat('indtobacco_p'), joaat('s_indiantobacco01x') },
+	milkweed = { joaat('milkweed_p') },
+	oleander_sage = { joaat('orleander_p') },
+	oregano = { joaat('oregano_p') },
+	parasol_mushroom = { joaat('s_inv_parasol'), joaat('s_inv_parasol01bx') },
+	prairie_poppy = { joaat('prariepoppy_p') },
+	rams_head = { joaat('s_inv_ramshead'), joaat('s_inv_ramshead01bx') },
+	red_raspberry = { joaat('s_inv_raspberry01x'), joaat('s_inv_raspberry01bx') },
+	red_sage = { joaat('redsage_p') },
+	wild_carrots = { joaat('wildcarrot_p'), joaat('s_inv_wildcarrot01x'), joaat('s_inv_wildcarrot01bx') },
+	wild_feverfew = { joaat('feverfew_p') },
+	wild_mint = { joaat('wildmint_p'), joaat('s_inv_wildmint01x'), joaat('s_inv_wildmint01bx') },
+	wintergreen_berry = { joaat('s_inv_wintergreen01x'), joaat('s_inv_wintergreen01bx') },
+	yarrow = { joaat('yarrow01_p'), joaat('s_yarrow01x'), joaat('s_inv_yarrow01x') },
+}
+
+---Nearest matching plant models around composite coords.
+---@param plantKey string
+---@param coords vector3
+---@param radius number
 ---@return number[]
-local function GetCompositeEntities(compositeId)
+local function FindNearbyPlantEntities(plantKey, coords, radius)
 	local entities = {}
-	if not compositeId or compositeId == 0 or compositeId == -1 then
+	local models = PlantModels[plantKey]
+	if not models or not coords then
 		return entities
 	end
 
-	local maxEntities = 8
-	local byteLength = (maxEntities + 1) * 8
-	local blob = (string.blob and string.blob(byteLength)) or string.rep('\0', math.max(41, byteLength))
-	-- _GET_HERB_COMPOSITE_NUM_ENTITIES
-	local count = Citizen.InvokeNative(0x96C6ED22FB742C3E, compositeId, blob, Citizen.ResultAsInteger())
-	if type(count) ~= 'number' or count < 1 then
-		return entities
-	end
-
-	for i = 0, math.min(count, maxEntities) - 1 do
-		local ent = string.unpack('<i4', blob, 1 + (i * 8))
-		if ent and ent ~= 0 and DoesEntityExist(ent) then
-			entities[#entities + 1] = ent
+	for i = 1, #models do
+		local obj = GetClosestObjectOfType(coords.x, coords.y, coords.z, radius, models[i], false, false, false)
+		if obj and obj ~= 0 and DoesEntityExist(obj) then
+			local already = false
+			for j = 1, #entities do
+				if entities[j] == obj then
+					already = true
+					break
+				end
+			end
+			if not already then
+				entities[#entities + 1] = obj
+			end
 		end
 	end
 
 	return entities
 end
 
+---Resolve plant object handles near a composite (composite entity enum is unreliable).
+---@param entry table
+---@return number[]
+local function ResolvePlantEntities(entry)
+	return FindNearbyPlantEntities(entry.plantKey, entry.coords, 4.0)
+end
+
+---Whether the game clock is inside Config.NightHours.
+---@return boolean
+local function IsNightHours()
+	local hour = GetClockHours()
+	local start = Config.NightHours?.start or 22
+	local finish = Config.NightHours?.finish or 5
+	if start == finish then
+		return true
+	end
+	if start > finish then
+		return hour >= start or hour < finish
+	end
+	return hour >= start and hour < finish
+end
+
+---Whether a plant key may spawn right now (config + nightOnly).
+---@param plantKey string
+---@return boolean
+local function CanSpawnPlant(plantKey)
+	local plant = Config.Plants?[plantKey]
+	if not plant then
+		return false
+	end
+	if plant.nightOnly and not IsNightHours() then
+		return false
+	end
+	return true
+end
+
+local function GetEagleEyeTint(plantKey)
+	local plant = Config.Plants?[plantKey]
+	if not plant then
+		return nil
+	end
+	if plant.eagleEyeTint == false then
+		return false
+	end
+	if type(plant.eagleEyeTint) == 'table' then
+		return plant.eagleEyeTint
+	end
+	local fallback = Config.DefaultEagleEyeTint
+	if fallback == false then
+		return false
+	end
+	return fallback
+end
+
+-- NOT SURE IF THIS IS NEEDED? BUT ADDED JUST IN CASE.
+local function UnregisterEagleEyeEntities(entities)
+	if not entities then
+		return
+	end
+	local player = PlayerId()
+	for i = 1, #entities do
+		local ent = entities[i]
+		if ent and ent ~= 0 then
+			-- _UNREGISTER_EAGLE_EYE_FOR_ENTITY
+			Citizen.InvokeNative(0x9DAE1380CC5C6451, player, ent)
+		end
+	end
+end
+
+local function ApplyEagleEyeTint(plantKey, entities)
+	local tint = GetEagleEyeTint(plantKey)
+	if not tint or tint == false or not entities then
+		return
+	end
+	local r = math.floor(tonumber(tint.r) or 0)
+	local g = math.floor(tonumber(tint.g) or 0)
+	local b = math.floor(tonumber(tint.b) or 0)
+	local player = PlayerId()
+	for i = 1, #entities do
+		local ent = entities[i]
+		if ent and ent ~= 0 and DoesEntityExist(ent) then
+			-- _REGISTER_EAGLE_EYE_FOR_ENTITY
+			Citizen.InvokeNative(0x543DFE14BE720027, player, ent, true)
+			-- EAGLE_EYE_SET_CUSTOM_ENTITY_TINT
+			Citizen.InvokeNative(0x62ED71E133B6C9F1, ent, r, g, b)
+			-- _EAGLE_EYE_SET_REGISTERED_ENTITY_GLOW
+			Citizen.InvokeNative(0xBC02B3D151D3859F, ent, true)
+		end
+	end
+end
+
 local function UnbindEntities(index, entry)
 	if entry?.entities then
+		UnregisterEagleEyeEntities(entry.entities)
 		for i = 1, #entry.entities do
 			local ent = entry.entities[i]
 			if EntityToIndex[ent] == index then
@@ -73,12 +201,12 @@ end
 
 local function BindEntities(index, entry)
 	UnbindEntities(index, entry)
-	entry.entities = GetCompositeEntities(entry.compositeId)
+	local entities = ResolvePlantEntities(entry)
+	entry.entities = entities
 	for i = 1, #entry.entities do
 		EntityToIndex[entry.entities[i]] = index
 	end
 
-	local entities = entry.entities
 	for i = 1, #entities do
 		local ent = entities[i]
 		if ent and ent ~= 0 and DoesEntityExist(ent) then
@@ -87,10 +215,14 @@ local function BindEntities(index, entry)
 		end
 	end
 
+	ApplyEagleEyeTint(entry.plantKey, entities)
+
 	local first = entities[1]
 	if first and first ~= 0 and DoesEntityExist(first) then
 		entry.coords = GetEntityCoords(first)
 	end
+
+	return #entities > 0
 end
 
 local function DeleteActive(index)
@@ -256,16 +388,20 @@ local function CreateActive(location)
 	Active[index] = entry
 
 	CreateThread(function()
-		Wait(100)
-		if Active[index] == entry then
-			BindEntities(index, entry)
+		for attempt = 1, 20 do
+			Wait(attempt == 1 and 100 or 150)
+			if Active[index] ~= entry then
+				return
+			end
+			if BindEntities(index, entry) then
+				return
+			end
 		end
 	end)
 end
 
 local function StreamComposites()
 	local cfg = Config.Composites
-	if not cfg?.enabled then return end
 	if not LocalPlayer.state.IsInSession then return end
 	if IsPedDeadOrDying(PlayerPedId()) then return end
 
@@ -285,19 +421,27 @@ local function StreamComposites()
 	local despawnDist = cfg.despawnDistance or 80.0
 	local spawnDistSq = spawnDist * spawnDist
 	local despawnDistSq = despawnDist * despawnDist
+	local isNight = IsNightHours()
 
 	for index, entry in pairs(Active) do
-		local dx = pedCoords.x - entry.coords.x
-		local dy = pedCoords.y - entry.coords.y
-		if (dx * dx + dy * dy) > despawnDistSq then
+		local plant = Config.Plants?[entry.plantKey]
+		if plant?.nightOnly and not isNight then
 			DeleteActive(index)
+		else
+			local dx = pedCoords.x - entry.coords.x
+			local dy = pedCoords.y - entry.coords.y
+			if (dx * dx + dy * dy) > despawnDistSq then
+				DeleteActive(index)
+			end
 		end
 	end
 
 	for i = 1, #Locations do
 		local location = Locations[i]
 		local claimedUntil = ClaimedUntil[location.index]
-		if not Active[location.index] and not (claimedUntil and now and now < claimedUntil) then
+		if not Active[location.index]
+			and not (claimedUntil and now and now < claimedUntil)
+			and CanSpawnPlant(location.plantKey) then
 			local dx = pedCoords.x - location.x
 			local dy = pedCoords.y - location.y
 			if (dx * dx + dy * dy) <= spawnDistSq then
@@ -449,6 +593,23 @@ CreateThread(function()
 	print(('^2[gs_plants]^7 loaded %s composite locations (%s plants)'):format(#Locations, plantCount))
 
 	TriggerServerEvent('gs_plants:server:RequestClaimed')
+
+	-- Re-apply Eagle Eye tint/glow when Eagle Eye turns on
+	CreateThread(function()
+		local wasEagleEye = false
+		while true do
+			local eagleEye = Citizen.InvokeNative(0x45AB66D02B601FA7, PlayerId()) == true
+			if eagleEye and not wasEagleEye then
+				for _, entry in pairs(Active) do
+					if entry.entities and #entry.entities > 0 then
+						ApplyEagleEyeTint(entry.plantKey, entry.entities)
+					end
+				end
+			end
+			wasEagleEye = eagleEye
+			Wait(eagleEye and 200 or 400)
+		end
+	end)
 
 	while true do
 		StreamComposites()

@@ -14,11 +14,13 @@ Native herb composite plants for RedM. Stream world plants near the player, harv
 - **Distance streaming** - spawn / despawn plants around the player with a max active cap
 - **Pick or eat** - pick rolls inventory rewards; eat applies hunger / thirst / stress effects
 - **Shared harvest lock** - claimed plants stay down for all players until the timeout expires
+- **Night herbs** - Agarita and Blood Flower only spawn during configurable night hours
+- **Eagle Eye tints** - per-plant RGB glow while Eagle Eye is active
 - **Configurable plants** - rewards, chances, amounts, and eat effects per plant key in `config.lua`
 - **Soft needs support** - works with outsider_needs or stock VORP `vorp_metabolism` when started (not a hard dependency)
 - **Event providers** - listen via `gs_events` (default) or `vorp_lib`
 - **Locales** - player-facing notifies via `locales/<lang>.json`
-- **Pre Configured** - Over 5000 unique plant locations are pre configured.
+- **Pre Configured** - Over 5700 unique plant locations are pre configured.
 
 ---
 
@@ -55,12 +57,13 @@ When using `vorp_lib` instead of `gs_events`, set `Config.EventProvider = 'vorp_
 ## How it works
 
 1. Client builds a stream list from `data/composites.lua` (`vec2` XY; Z resolved when the composite spawns).
-2. Nearby composites spawn up to `Config.Composites.maxActive`. Far ones despawn.
-3. Native plant loot events (`EVENT_LOOT_PLANT_START`, `EVENT_LOOT`, `EVENT_LOOT_COMPLETE`) detect pick vs eat.
-4. Server validates distance and claim state, then either:
+2. Nearby composites spawn up to `Config.Composites.maxActive`. Far ones despawn. Night-only plants also despawn when day starts.
+3. Bound plant entities get per-plant Eagle Eye tint/glow from `eagleEyeTint`.
+4. Native plant loot events (`EVENT_LOOT_PLANT_START`, `EVENT_LOOT`, `EVENT_LOOT_COMPLETE`) detect pick vs eat.
+5. Server validates distance and claim state, then either:
    - **pick** – rolls each reward by chance and adds items the player can carry, or
    - **eat** – notifies the client to apply needs effects for that plant key
-5. The plant is claimed for `Config.Timeout` minutes for every player.
+6. The plant is claimed for `Config.Timeout` minutes for every player.
 
 ---
 
@@ -76,9 +79,11 @@ Edit `config.lua`:
 | `Composites.spawnDistance` | `20.0` | Spawn when player is within this range |
 | `Composites.despawnDistance` | `40.0` | Despawn beyond this range |
 | `Composites.maxActive` | `20` | Cap on simultaneous composites |
+| `NightHours.start` / `.finish` | `22` / `5` | Night window (start inclusive, finish exclusive; wraps midnight) |
+| `DefaultEagleEyeTint` | `{ r=0, g=255, b=0 }` | Fallback tint, or `false` to disable |
 | `LootBehaviors.pick` / `.eat` | `0` / `1` | Native looting behavior types |
 | `DefaultEat` | table | Fallback eat effects when a plant has no `eat` table |
-| `Plants` | table | Per-plant name, rewards, and eat effects |
+| `Plants` | table | Per-plant name, rewards, eat, nightOnly, eagleEyeTint |
 
 ### Locales
 
@@ -99,6 +104,7 @@ Plant display names stay in `Config.Plants[*].name` so owners can rename without
 ```lua
 alaskan_ginseng = {
     name = 'Alaskan Ginseng',
+    eagleEyeTint = { r = 80, g = 220, b = 120 },
     rewards = {
         ['herb_alaskan_ginseng'] = { min = 1, max = 2, chance = 1.0 },
         ['seed_alaskan_ginseng'] = { min = 1, max = 1, chance = 0.25 },
@@ -109,10 +115,24 @@ alaskan_ginseng = {
         RemoveStress = 8,
     },
 },
+agarita = {
+    name = 'Agarita',
+    nightOnly = true,
+    eagleEyeTint = { r = 180, g = 255, b = 80 },
+    rewards = {
+        ['herb_agarita'] = { min = 1, max = 2, chance = 1.0 },
+    },
+    eat = {
+        AddHunger = 5,
+        RemoveStress = 6,
+    },
+},
 ```
 
 - `rewards` keys are inventory item names. Each item rolls independently (`chance` `1.0` = always).
 - `eat` uses fields (`AddHunger`, `AddThirst`, `RemoveStress`, ...). Values are on a 0–100 scale.
+- `nightOnly = true` only spawns during `Config.NightHours`.
+- `eagleEyeTint` is RGB for Eagle Eye glow. Omit to use `DefaultEagleEyeTint`. Set `false` to skip Eagle Eye registration for that plant.
 
 ### Locations
 
@@ -124,11 +144,13 @@ alaskan_ginseng = {
 
 `rewards` must match a key in `Config.Plants`.
 
+Night herb dens (Agarita, Blood Flower) are unioned from all Jean Ropke collector flower cycles (map coords converted to game XY).
+
 ---
 
 ## Included plants
 
-Alaskan Ginseng, American Ginseng, Bay Bolete, Blackberry, Black Currant, Chanterelles, Common Bulrush, Creeping Thyme, Desert Sage, English Mace, Evergreen Huckleberry, Golden Currant, Hummingbird Sage, Indian Tobacco, Milkweed, Oleander Sage, Oregano, Parasol Mushroom, Prairie Poppy, Ram's Head, Red Raspberry, Red Sage, Wild Carrots, Wild Feverfew, Wild Mint, Wintergreen Berry, Yarrow.
+Agarita (night), Alaskan Ginseng, American Ginseng, Bay Bolete, Blackberry, Black Currant, Blood Flower (night), Chanterelles, Common Bulrush, Creeping Thyme, Desert Sage, English Mace, Evergreen Huckleberry, Golden Currant, Hummingbird Sage, Indian Tobacco, Milkweed, Oleander Sage, Oregano, Parasol Mushroom, Prairie Poppy, Ram's Head, Red Raspberry, Red Sage, Wild Carrots, Wild Feverfew, Wild Mint, Wintergreen Berry, Yarrow.
 
 ---
 
