@@ -422,8 +422,6 @@ AddEventHandler('onResourceStop', function(resourceName)
 end)
 
 CreateThread(function()
-	if not Config.Composites?.enabled then return end
-
 	if type(CompositeLocations) ~= 'table' then
 		print('^1[gs_plants]^7 missing CompositeLocations (data/composites.lua)')
 		return

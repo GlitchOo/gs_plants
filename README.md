@@ -73,7 +73,6 @@ Edit `config.lua`:
 | `Locale` | `'en'` | Loads `locales/<Locale>.json` (falls back to `en`) |
 | `Timeout` | `60` | Shared cooldown after pick / eat (minutes) |
 | `EventProvider` | `'gs_events'` | `'gs_events'` or `'vorp_lib'` |
-| `Composites.enabled` | `true` | Toggle streaming |
 | `Composites.spawnDistance` | `20.0` | Spawn when player is within this range |
 | `Composites.despawnDistance` | `40.0` | Despawn beyond this range |
 | `Composites.maxActive` | `20` | Cap on simultaneous composites |

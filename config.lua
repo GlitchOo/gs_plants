@@ -10,7 +10,6 @@ Config.EventProvider = 'gs_events'
 
 -- Composite streamer (xy locations in data/composites.lua; Z resolved at spawn)
 Config.Composites = {
-	enabled = true,
 	spawnDistance = 20.0,
 	despawnDistance = 40.0,
 	maxActive = 20,
