@@ -10,14 +10,14 @@ Native herb composite plants for RedM. Stream world plants near the player, harv
 
 ## Features
 - **Syncronized** - Claimed plants are owned by the server and sync'd with every player
-- **Native composites** – real RDR3 herb composites with built-in pick and eat scenarios
-- **Distance streaming** – spawn / despawn plants around the player with a max active cap
-- **Pick or eat** – pick rolls inventory rewards; eat applies hunger / thirst / stress effects
-- **Shared harvest lock** – claimed plants stay down for all players until the timeout expires
-- **Configurable plants** – rewards, chances, amounts, and eat effects per plant key in `config.lua`
-- **Soft needs support** – works with outsider_needs or stock VORP `vorp_metabolism` when started (not a hard dependency)
-- **Event providers** – listen via `gs_events` (default) or `vorp_lib`
-- **Locales** – player-facing notifies via `locales/<lang>.json`
+- **Native composites** - real RDR3 herb composites with built-in pick and eat scenarios
+- **Distance streaming** - spawn / despawn plants around the player with a max active cap
+- **Pick or eat** - pick rolls inventory rewards; eat applies hunger / thirst / stress effects
+- **Shared harvest lock** - claimed plants stay down for all players until the timeout expires
+- **Configurable plants** - rewards, chances, amounts, and eat effects per plant key in `config.lua`
+- **Soft needs support** - works with outsider_needs or stock VORP `vorp_metabolism` when started (not a hard dependency)
+- **Event providers** - listen via `gs_events` (default) or `vorp_lib`
+- **Locales** - player-facing notifies via `locales/<lang>.json`
 - **Pre Configured** - Over 5000 unique plant locations are pre configured.
 
 ---
