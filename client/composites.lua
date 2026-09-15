@@ -33,6 +33,7 @@ local function EnsureCompositeAsset(hash)
 end
 
 ---Known world/inventory plant models used when composite entity lookup returns nothing.
+---Im not sure if composites spawn variations so i've added all the possible variations that i could find...
 local PlantModels = {
 	agarita = { joaat('mp005_s_inv_agarita_01x'), joaat('mp005_s_inv_agarita_01bx') },
 	alaskan_ginseng = { joaat('alaskanginseng_p'), joaat('s_inv_alaskanginseng01x'), joaat('s_inv_alaskanginseng01bx') },
@@ -356,9 +357,8 @@ local function CreateActive(location)
 		return
 	end
 
-	local pedCoords = GetEntityCoords(PlayerPedId())
-	local found, groundZ = GetGroundZFor_3dCoord(location.x, location.y, pedCoords.z + 999.0, false)
-	local z = (found and groundZ) or pedCoords.z
+	-- groundSetting 0 snaps the composite to ground; Z is only a search seed
+	local z = GetEntityCoords(PlayerPedId()).z
 
 	-- discoveries: create COMPOSITE (herb entity + native pick/eat scenario)
 	local compositeId = Citizen.InvokeNative(
@@ -368,7 +368,7 @@ local function CreateActive(location)
 		location.y,
 		z,
 		0.0,
-		0,
+		0, -- groundSetting: 0 = spawn on ground
 		Citizen.PointerValueInt(),
 		-1,
 		Citizen.ReturnResultAnyway()
